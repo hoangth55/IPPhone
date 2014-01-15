@@ -98,9 +98,10 @@ namespace IPPhone
                 // Console.WriteLine(finalCalledPartyNumberPartitionIndex);
 
                 int durationIndex = Array.IndexOf(split, "duration");
-                Console.WriteLine(durationIndex);
-
+                //Console.WriteLine(durationIndex);
+                int authCodeDescriptionIndex = Array.IndexOf(split, "authCodeDescription");
                 int count = 0;
+
                 while (!myFile.EndOfStream)
                 {
 
@@ -110,46 +111,30 @@ namespace IPPhone
 
                     string callingPartyNumber = fields[callingPartyNumberIndex];
                     string finalCalledPartyNumber = fields[finalCalledPartyNumberIndex];
-                    string dateTimeConnect = fields[dateTimeConnectIndex];
-                    string dateTimeDisconnect = fields[dateTimeDisconnectIndex];
+                    DateTime dateTimeConnect = FromUnixTime(Convert.ToDouble(fields[dateTimeConnectIndex]));
+                    DateTime dateTimeDisconnect = FromUnixTime(Convert.ToDouble(fields[dateTimeDisconnectIndex]));
                     string finalCalledPartyNumberPartition = fields[finalCalledPartyNumberPartitionIndex];
                     string duration = fields[durationIndex];
+                    string authCodeDescription = fields[authCodeDescriptionIndex];
 
                     int callingPartyNumberID;
                     int finalCalledPartyNumberPartitionID;
                     double totalCharging;
+                    
 
-                    //------------Check to get info about Partion Calling and Number's InFor
-
-                    //---------------Get Partition-------------
-                    SqlCommand getCommand = new SqlCommand();
-                    getCommand.Connection = con;
-                    getCommand.CommandType = CommandType.Text;
-                    getCommand.CommandText = @"Select   Partition.ID as N'ID',
-                                                        Name as N'Name' from Partition 
-                                            where (Name = '" + finalCalledPartyNumberPartition + "')";
-
-                    da.SelectCommand = getCommand;
-                    dtFilterPartition.Clear();
-                    da.Fill(dtFilterPartition);
-
-                    if (dtFilterPartition.Rows.Count > 0)
+                    //--------------Check to get only Calling with Duration > 0 -----------------
+                    if (Convert.ToInt32(duration) > 0)
                     {
-                        DataRow[] dtrow = dtFilterPartition.Select();
-                        finalCalledPartyNumberPartitionID = Convert.ToInt32(dtrow[0]["ID"].ToString());
-                        dtFilterPartition.Clear();
-                        //-----------------Finish get partition---------------
 
-                        //---------------------Info Number-------------------
-                        getCommand = new SqlCommand();
+                        //------------Check to get info about Partion Calling and Number's InFor
+
+                        //---------------Get Partition-------------
+                        SqlCommand getCommand = new SqlCommand();
                         getCommand.Connection = con;
                         getCommand.CommandType = CommandType.Text;
-                        getCommand.CommandText = @"Select   InfoNumberPhone.ID as N'ID',
-                                                        PhoneNumber as N'PhoneNumber',
-                                                        Department_Name as N'Department_Name',
-                                                        Department_Des as N'Department_Des'
-                                                    from InfoNumberPhone 
-                                            where (PhoneNumber = '" + callingPartyNumber + "')";
+                        getCommand.CommandText = @"Select   Partition.ID as N'ID',
+                                                        Name as N'Name' from Partition 
+                                            where (Name = '" + finalCalledPartyNumberPartition + "')";
 
                         da.SelectCommand = getCommand;
                         dtFilterPartition.Clear();
@@ -157,93 +142,133 @@ namespace IPPhone
 
                         if (dtFilterPartition.Rows.Count > 0)
                         {
-                            count++;
-                            DataRow[] dtrow2 = dtFilterPartition.Select();
-                            callingPartyNumberID = Convert.ToInt32(dtrow2[0]["ID"].ToString());
+                            DataRow[] dtrow = dtFilterPartition.Select();
+                            finalCalledPartyNumberPartitionID = Convert.ToInt32(dtrow[0]["ID"].ToString());
                             dtFilterPartition.Clear();
-                            //-------------------Finish get calling ID--------------------
+                            //-----------------Finish get partition---------------
 
-                            //-----------Computing the total charging for each calling----------
+                            //---------------------Info Number-------------------
                             getCommand = new SqlCommand();
                             getCommand.Connection = con;
                             getCommand.CommandType = CommandType.Text;
-                            getCommand.CommandText = @"Select   PriceList.ID as N'ID',
-                                                        Category as N'Category',
-                                                        NumberHeader as N'NumberHeader',
-                                                        Minute as N'Minute',
-                                                        Block6 as N'Block6',
-                                                        Second as N'Second'
-                                                    from PriceList 
-                                            where (Category = '" + finalCalledPartyNumberPartition + "')";
+                            getCommand.CommandText = @"Select   InfoNumberPhone.ID as N'ID',
+                                                        PhoneNumber as N'PhoneNumber',
+                                                        Department_Name as N'Department_Name',
+                                                        Department_Des as N'Department_Des'
+                                                    from InfoNumberPhone 
+                                            where (PhoneNumber = '" + callingPartyNumber + "')";
 
                             da.SelectCommand = getCommand;
                             dtFilterPartition.Clear();
                             da.Fill(dtFilterPartition);
 
-                            DataRow[] dtrow3 = dtFilterPartition.Select();
-                           // case (dtrow3[0]["Category"].ToString()):
-                            String type_call = dtrow3[0]["Category"].ToString();
-                            if (type_call == "FIM_HN_Mobile-PT" || type_call == "FIM_HN_Mobile-PT-FAC" ||
-                                type_call == "FIM_HN_LongDistance-PT" || type_call == "FIM_HN_LongDistance-PT-FAC")
+                            //-------------Checking to match InfoNumber---------
+                            if (dtFilterPartition.Rows.Count > 0)
                             {
-                                int _minute = Convert.ToInt32(duration) / 60;
-                                int temp = Convert.ToInt32(duration) % 60;
-                                int _block = temp / 6;
-                                int _second = temp % 6;
+                                DataRow[] dtrow2 = dtFilterPartition.Select();
+                                callingPartyNumberID = Convert.ToInt32(dtrow2[0]["ID"].ToString());
+                                //-------------------Checking to get Full Information of Calling: authCodeDescription
+                                if (authCodeDescription == "")
+                                {
+                                    authCodeDescription = dtrow2[0]["Department_Name"].ToString();
+                                }
+                                //-------------------Finish to get full Information
 
-                                totalCharging = _minute * Convert.ToDouble(dtrow3[0]["Minute"].ToString()) +
-                                    _block * Convert.ToDouble(dtrow3[0]["Block6"].ToString()) +
-                                    _second * Convert.ToDouble(dtrow3[0]["Second"].ToString());
+                                dtFilterPartition.Clear();
+                                //-------------------Finish get calling ID--------------------
 
+                                //-----------Computing the total charging for each calling----------
+                                getCommand = new SqlCommand();
+                                getCommand.Connection = con;
+                                getCommand.CommandType = CommandType.Text;
+                                getCommand.CommandText = @"Select   PriceList.ID as N'ID',
+                                                        Category as N'Category',
+                                                        NumberHeader as N'NumberHeader',
+                                                        Minute as N'Minute',
+                                                        Block6 as N'Block6',
+                                                        Second as N'Second',
+                                                        Type as N'Type'
+                                                    from PriceList 
+                                            where (Category = '" + finalCalledPartyNumberPartition + "')";
+
+                                da.SelectCommand = getCommand;
+                                dtFilterPartition.Clear();
+                                da.Fill(dtFilterPartition);
+                                if (dtFilterPartition.Rows.Count > 0 )
+                                {
+                                    DataRow[] dtrow3 = dtFilterPartition.Select();
+                                    // case (dtrow3[0]["Category"].ToString()):
+                                    //String type_call = dtrow3[0]["Category"].ToString();
+                                    int type_call = Convert.ToInt32(dtrow3[0]["Type"].ToString());
+                                    if (type_call == 0)
+                                    {
+                                        int _minute = Convert.ToInt32(duration) / 60;
+                                        int temp = Convert.ToInt32(duration) % 60;
+                                        int _block = temp / 6;
+                                        int _second = temp % 6;
+
+                                        totalCharging = _minute * Convert.ToDouble(dtrow3[0]["Minute"].ToString()) +
+                                            _block * Convert.ToDouble(dtrow3[0]["Block6"].ToString()) +
+                                            _second * Convert.ToDouble(dtrow3[0]["Second"].ToString());
+
+                                    }
+                                    else
+                                    {
+                                        int _minute = Convert.ToInt32(duration) / 60;
+                                        if (Convert.ToDouble(duration) % 60 > 0)
+                                            _minute++;
+
+                                        totalCharging = _minute * Convert.ToDouble(dtrow3[0]["Minute"].ToString());
+
+                                    }
+                                    
+                                }
+                                else //--------If not found in PriceList Info, it will return 0;
+                                {
+                                    totalCharging = 0;
+                                }
+
+
+                                //--------- Finish compute charging---------------
+
+                                //-----------Push each call to server--------------
+                                count++;
+                                string sql = "INSERT INTO CallRecord(CallingPartyNumber_ID, AuthCodeDescription,FinalCalledPartyNumber, DateTimeConnect, DateTimeDisconnect, FinalCalledPartyNumberPartition_ID, Duration, TotalCharging) values (@CallingPartyNumber_ID_, @AuthCodeDescription_,@FinalCalledPartyNumber_, @DateTimeConnect_,@DateTimeDisconnect_, @FinalCalledPartyNumberPartition_ID_, @Duration_, @TotalCharging_)";
+                                //con.Open();
+                                SqlCommand cmd = new SqlCommand();
+                                cmd.Connection = con;
+                                cmd.CommandType = CommandType.Text;
+                                cmd.CommandText = sql;
+                                cmd.Parameters.AddWithValue("@CallingPartyNumber_ID_", callingPartyNumberID);
+                                cmd.Parameters.AddWithValue("@FinalCalledPartyNumber_", finalCalledPartyNumber);
+                                cmd.Parameters.AddWithValue("@DateTimeConnect_", dateTimeConnect);
+                                cmd.Parameters.AddWithValue("@DateTimeDisconnect_", dateTimeDisconnect);
+                                cmd.Parameters.AddWithValue("@FinalCalledPartyNumberPartition_ID_", finalCalledPartyNumberPartitionID);
+                                cmd.Parameters.AddWithValue("@Duration_", duration);
+                                cmd.Parameters.AddWithValue("@TotalCharging_", totalCharging);
+                                cmd.Parameters.AddWithValue("@AuthCodeDescription_", authCodeDescription);
+                                try
+                                {
+                                    //con.Open();
+                                    int recordsAffected = cmd.ExecuteNonQuery();
+                                }
+                                catch (System.Data.SqlClient.SqlException sqlException)
+                                {
+                                    System.Windows.Forms.MessageBox.Show(sqlException.Message);
+                                }
                             }
                             else
                             {
-                                int _minute = Convert.ToInt32(duration) / 60;
-                                if (Convert.ToDouble(duration) % 60 >= 0)
-                                    _minute++;
+                                continue;
+                            }//----------------------Finish to checking Info Number---------------
 
-                                totalCharging = _minute * Convert.ToDouble(dtrow3[0]["Minute"].ToString());
-
-                            }
-                            
-
-                            //--------- Finish compute charging---------------
-
-                            //-----------Push each call to server--------------
-                            string sql = "INSERT INTO CallRecord(CallingPartyNumber_ID, FinalCalledPartyNumber, DateTimeConnect, DateTimeDisconnect, FinalCalledPartyNumberPartition_ID, Duration, TotalCharging) values (@CallingPartyNumber_ID_, @FinalCalledPartyNumber_, @DateTimeConnect_,@DateTimeDisconnect_, @FinalCalledPartyNumberPartition_ID_, @Duration_, @TotalCharging_)";
-                            //con.Open();
-                            SqlCommand cmd = new SqlCommand();
-                            cmd.Connection = con;
-                            cmd.CommandType = CommandType.Text;
-                            cmd.CommandText = sql;
-                            cmd.Parameters.AddWithValue("@CallingPartyNumber_ID_", callingPartyNumberID);
-                            cmd.Parameters.AddWithValue("@FinalCalledPartyNumber_", finalCalledPartyNumber);
-                            cmd.Parameters.AddWithValue("@DateTimeConnect_", dateTimeConnect);
-                            cmd.Parameters.AddWithValue("@DateTimeDisconnect_", dateTimeDisconnect);
-                            cmd.Parameters.AddWithValue("@FinalCalledPartyNumberPartition_ID_", finalCalledPartyNumberPartitionID);
-                            cmd.Parameters.AddWithValue("@Duration_", duration);
-                            cmd.Parameters.AddWithValue("@TotalCharging_", totalCharging);
-
-                            try
-                            {
-                                //con.Open();
-                                int recordsAffected = cmd.ExecuteNonQuery();
-                            }
-                            catch (System.Data.SqlClient.SqlException sqlException)
-                            {
-                                System.Windows.Forms.MessageBox.Show(sqlException.Message);
-                            }
                         }
                         else
                         {
                             continue;
-                        }
-                        //if (count > 1000) break;
-                    }
-                    else
-                    {
-                        continue;
-                    }
+                        }//------------Finish to check to matching Partition
+
+                    }//--------------Finish to check Calling with Duration > 0 -----------------
 
                 }
                 disconnect();
@@ -258,10 +283,6 @@ namespace IPPhone
 
 
         }
-
-        
-
-       
 
 
         private void updateInfoNumberToolStripMenuItem_Click(object sender, EventArgs e)
@@ -281,5 +302,12 @@ namespace IPPhone
 
         }
 
+        public DateTime FromUnixTime(Double unixTime)
+        {
+            var epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            return epoch.AddSeconds(unixTime);
+        }
+
     }
+    
 }
