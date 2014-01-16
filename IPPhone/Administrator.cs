@@ -15,15 +15,12 @@ namespace IPPhone
 {
     public partial class Administrator : Form
     {
-        //private SqlDataAdapter da = new SqlDataAdapter();
-        //private DataTable dt = new DataTable("IPPhone");
-        private SqlConnection con;
-        private DataTable dtFilterPartition = new DataTable("Partition");
+        private SqlConnection con; 
         private SqlDataAdapter da = new SqlDataAdapter();
 
-        //private DataTable dt = new DataTable("InfoUser");
-        // private DataTable dtEncryption = new DataTable("InfoEncryption");
-        //private SqlDataAdapter da = new SqlDataAdapter();
+        private DataTable dtPartition = new DataTable("Partition");
+        private DataTable dtInfoNumberPhone = new DataTable("InfoNumberPhone");
+        private DataTable dtPriceList = new DataTable("PriceList");
 
         private void connect()
         {
@@ -102,6 +99,107 @@ namespace IPPhone
                 int authCodeDescriptionIndex = Array.IndexOf(split, "authCodeDescription");
                 int count = 0;
 
+                //-----------Create table Partion from Database--------------
+                SqlCommand cmdPartition = new SqlCommand();
+                cmdPartition.Connection = con;
+                cmdPartition.CommandType = CommandType.Text;
+                cmdPartition.CommandText = @"Select   Partition.ID as N'ID',
+                                                        Name as N'Name' from Partition";
+
+                da.SelectCommand = cmdPartition;
+                dtPartition.Clear();
+                da.Fill(dtPartition);
+                int rowPartition = dtPartition.Rows.Count;
+                DataRow[] dtrowPartition = dtPartition.Select();
+
+                List<PartitionInfo> PartitionTable = new List<PartitionInfo>();
+
+                for (int i = 0; i < rowPartition; i++)
+                {
+                    PartitionInfo partitionTable = new PartitionInfo();
+                    partitionTable.Id = Convert.ToInt32(dtrowPartition[i]["ID"].ToString());
+                    partitionTable.Name = dtrowPartition[i]["Name"].ToString();
+                    PartitionTable.Add(partitionTable);
+                }
+
+                int totalPartitionTable = PartitionTable.Count;
+                //-------------Finish get partition------------
+
+                //-------------Create table InfoNumberPhone from Database--------------
+                SqlCommand cmdInfoNumber = new SqlCommand();
+                cmdInfoNumber.Connection = con;
+                cmdInfoNumber.CommandType = CommandType.Text;
+                cmdInfoNumber.CommandText = @"Select   InfoNumberPhone.ID as N'ID',
+                                                        PhoneNumber as N'PhoneNumber',
+                                                        Department_Name as N'Department_Name',
+                                                        Department_Des as N'Department_Des'
+                                                    from InfoNumberPhone";
+
+                da.SelectCommand = cmdInfoNumber;
+                dtInfoNumberPhone.Clear();
+                da.Fill(dtInfoNumberPhone);
+
+                int rowInfoNumber = dtInfoNumberPhone.Rows.Count;
+                DataRow[] dtrowInfoNumber = dtInfoNumberPhone.Select();
+
+                List<InfoNumberPhone> InfoNumberTable = new List<InfoNumberPhone>();
+
+                for (int i = 0; i < rowInfoNumber; i++)
+                {
+                    InfoNumberPhone infoNumberTable = new InfoNumberPhone();
+                    infoNumberTable.Id = Convert.ToInt32(dtrowInfoNumber[i]["ID"].ToString());
+                    infoNumberTable.PhoneNumber = dtrowInfoNumber[i]["PhoneNumber"].ToString();
+                    infoNumberTable.DepartmentName = dtrowInfoNumber[i]["Department_Name"].ToString();
+                    infoNumberTable.DepartmentDes = dtrowInfoNumber[i]["Department_Des"].ToString();
+                    InfoNumberTable.Add(infoNumberTable);
+                }
+
+                int totalInfoNumberTable = InfoNumberTable.Count;
+
+
+                //-------------Finish get InfoNumberPhone------------
+
+                //-------------Create table PriceList from Database--------------
+                SqlCommand cmdPriceList = new SqlCommand();
+                cmdPriceList.Connection = con;
+                cmdPriceList.CommandType = CommandType.Text;
+                cmdPriceList.CommandText = @"Select   PriceList.ID as N'ID',
+                                                        Category as N'Category',
+                                                        NumberHeader as N'NumberHeader',
+                                                        Minute as N'Minute',
+                                                        Block6 as N'Block6',
+                                                        Second as N'Second',
+                                                        Type as N'Type'
+                                                    from PriceList";
+
+                da.SelectCommand = cmdPriceList;
+                dtPriceList.Clear();
+                da.Fill(dtPriceList);
+
+                int rowPriceList = dtPriceList.Rows.Count;
+                DataRow[] dtrowPriceList = dtPriceList.Select();
+
+                List<PriceList> PriceListTable = new List<PriceList>();
+
+                for (int i = 0; i < rowPriceList; i++)
+                {
+                    PriceList priceListTable = new PriceList();
+                    priceListTable.Category = dtrowPriceList[i]["Category"].ToString();
+                    priceListTable.Minute = dtrowPriceList[i]["Minute"].ToString();
+                    priceListTable.Block6 = dtrowPriceList[i]["Block6"].ToString();
+                    priceListTable.Second = dtrowPriceList[i]["Second"].ToString();
+                    priceListTable.Type = dtrowPriceList[i]["Type"].ToString();
+                    PriceListTable.Add(priceListTable);
+                }
+
+                int totalPriceListTable = PriceListTable.Count;
+                //-------------Finish get PriceList------------
+
+
+                //-------------Create table Number International from Database--------------
+                List<NumberInternational> NumberInternationalTablie = new List<NumberInternational>();
+
+                //-------------Finish create table Number International----------------------
                 while (!myFile.EndOfStream)
                 {
 
@@ -120,7 +218,7 @@ namespace IPPhone
                     int callingPartyNumberID;
                     int finalCalledPartyNumberPartitionID;
                     double totalCharging;
-                    
+
 
                     //--------------Check to get only Calling with Duration > 0 -----------------
                     if (Convert.ToInt32(duration) > 0)
@@ -128,8 +226,8 @@ namespace IPPhone
 
                         //------------Check to get info about Partion Calling and Number's InFor
 
-                        //---------------Get Partition-------------
-                        SqlCommand getCommand = new SqlCommand();
+                        //---------------Checking to match Partition-------------
+                        /*SqlCommand getCommand = new SqlCommand();
                         getCommand.Connection = con;
                         getCommand.CommandType = CommandType.Text;
                         getCommand.CommandText = @"Select   Partition.ID as N'ID',
@@ -139,16 +237,27 @@ namespace IPPhone
                         da.SelectCommand = getCommand;
                         dtFilterPartition.Clear();
                         da.Fill(dtFilterPartition);
-
-                        if (dtFilterPartition.Rows.Count > 0)
+                        */
+                        bool partitionFound = false;
+                        int partitionIndex = 0; 
+                        for (int partitionCount = 0; partitionCount < totalPartitionTable; partitionCount++)
                         {
-                            DataRow[] dtrow = dtFilterPartition.Select();
-                            finalCalledPartyNumberPartitionID = Convert.ToInt32(dtrow[0]["ID"].ToString());
-                            dtFilterPartition.Clear();
+                            if (PartitionTable[partitionCount].Name == finalCalledPartyNumberPartition)
+                            {
+                                partitionIndex = partitionCount;
+                                partitionFound = true;
+                                break;
+                            }
+                        }
+
+                        if (partitionFound)
+                        {
+                            DataRow[] dtrow = dtPartition.Select();
+                            finalCalledPartyNumberPartitionID = PartitionTable[partitionIndex].Id;  
                             //-----------------Finish get partition---------------
 
                             //---------------------Info Number-------------------
-                            getCommand = new SqlCommand();
+                            /*SqlCommand getCommand = new SqlCommand();
                             getCommand.Connection = con;
                             getCommand.CommandType = CommandType.Text;
                             getCommand.CommandText = @"Select   InfoNumberPhone.ID as N'ID',
@@ -159,26 +268,39 @@ namespace IPPhone
                                             where (PhoneNumber = '" + callingPartyNumber + "')";
 
                             da.SelectCommand = getCommand;
-                            dtFilterPartition.Clear();
-                            da.Fill(dtFilterPartition);
+                            dtPartition.Clear();
+                            da.Fill(dtPartition);
+                            */
+
+                            bool InfoNumberFound = false;
+                            int InfoNumberIndex = 0;
+                            for (int infoNumberCount = 0; infoNumberCount < totalInfoNumberTable; infoNumberCount++)
+                            {
+                                if (InfoNumberTable[infoNumberCount].PhoneNumber == callingPartyNumber)
+                                {
+                                    InfoNumberIndex = infoNumberCount;
+                                    InfoNumberFound = true;
+                                    break;
+                                }
+                            }
 
                             //-------------Checking to match InfoNumber---------
-                            if (dtFilterPartition.Rows.Count > 0)
+                            if (InfoNumberFound)
                             {
-                                DataRow[] dtrow2 = dtFilterPartition.Select();
-                                callingPartyNumberID = Convert.ToInt32(dtrow2[0]["ID"].ToString());
+                                DataRow[] dtrow2 = dtPartition.Select();
+                                callingPartyNumberID = InfoNumberTable[InfoNumberIndex].Id;
                                 //-------------------Checking to get Full Information of Calling: authCodeDescription
                                 if (authCodeDescription == "")
                                 {
-                                    authCodeDescription = dtrow2[0]["Department_Name"].ToString();
+                                    authCodeDescription = InfoNumberTable[InfoNumberIndex].DepartmentName;
                                 }
                                 //-------------------Finish to get full Information
 
-                                dtFilterPartition.Clear();
+                                dtPartition.Clear();
                                 //-------------------Finish get calling ID--------------------
 
                                 //-----------Computing the total charging for each calling----------
-                                getCommand = new SqlCommand();
+                                /*getCommand = new SqlCommand();
                                 getCommand.Connection = con;
                                 getCommand.CommandType = CommandType.Text;
                                 getCommand.CommandText = @"Select   PriceList.ID as N'ID',
@@ -192,14 +314,28 @@ namespace IPPhone
                                             where (Category = '" + finalCalledPartyNumberPartition + "')";
 
                                 da.SelectCommand = getCommand;
-                                dtFilterPartition.Clear();
-                                da.Fill(dtFilterPartition);
-                                if (dtFilterPartition.Rows.Count > 0 )
+                                dtPartition.Clear();
+                                da.Fill(dtPartition);
+                                 */
+
+                                bool PriceListFound = false;
+                                int PriceListIndex = 0;
+                                for (int priceListCount = 0; priceListCount < totalPriceListTable; priceListCount++)
                                 {
-                                    DataRow[] dtrow3 = dtFilterPartition.Select();
+                                    if (PriceListTable[priceListCount].Category == finalCalledPartyNumberPartition)
+                                    {
+                                        PriceListIndex = priceListCount;
+                                        PriceListFound = true;
+                                        break;
+                                    }
+                                }
+
+                                if (PriceListFound)
+                                {
+                                    //DataRow[] dtrow3 = dtPartition.Select();
                                     // case (dtrow3[0]["Category"].ToString()):
                                     //String type_call = dtrow3[0]["Category"].ToString();
-                                    int type_call = Convert.ToInt32(dtrow3[0]["Type"].ToString());
+                                    int type_call = Convert.ToInt32(PriceListTable[PriceListIndex].Type);
                                     if (type_call == 0)
                                     {
                                         int _minute = Convert.ToInt32(duration) / 60;
@@ -207,9 +343,9 @@ namespace IPPhone
                                         int _block = temp / 6;
                                         int _second = temp % 6;
 
-                                        totalCharging = _minute * Convert.ToDouble(dtrow3[0]["Minute"].ToString()) +
-                                            _block * Convert.ToDouble(dtrow3[0]["Block6"].ToString()) +
-                                            _second * Convert.ToDouble(dtrow3[0]["Second"].ToString());
+                                        totalCharging = _minute * Convert.ToDouble(PriceListTable[PriceListIndex].Minute) +
+                                            _block * Convert.ToDouble(PriceListTable[PriceListIndex].Block6) +
+                                            _second * Convert.ToDouble(PriceListTable[PriceListIndex].Second);
 
                                     }
                                     else
@@ -217,11 +353,38 @@ namespace IPPhone
                                         int _minute = Convert.ToInt32(duration) / 60;
                                         if (Convert.ToDouble(duration) % 60 > 0)
                                             _minute++;
+                                        else { }
 
-                                        totalCharging = _minute * Convert.ToDouble(dtrow3[0]["Minute"].ToString());
+                                        if (type_call == 2)
+                                        {
+                                            /*/----------Notice............
+                                            bool found = false;
+                                            for (int i = 0; i < dtPartition.Rows.Count; i++)
+                                            {
+                                                if (PriceListTable[PriceListIndex].NumberHeader.IndexOf(finalCalledPartyNumber) != -1)
+                                                {
+                                                    totalCharging = _minute * Convert.ToDouble(dtrow3[i]["Minute"].ToString());
+                                                    found = true;
+                                                    break;
+                                                }
+
+                                            }
+                                            List<NumberInternational> test;
+                                            if (!found)
+                                                for (int i = 0; i < dtPartition.Rows.Count; i++)
+                                                    if (dtrow3[i]["NumberHeader"].ToString() == "0")
+                                                        totalCharging = _minute * Convert.ToDouble(dtrow3[i]["Minute"].ToString());
+                                            continue;
+                                        }
+
+
+                                           */
+
+                                        }
+                                        totalCharging = _minute * Convert.ToDouble(PriceListTable[PriceListIndex].Minute);
 
                                     }
-                                    
+
                                 }
                                 else //--------If not found in PriceList Info, it will return 0;
                                 {
@@ -309,5 +472,114 @@ namespace IPPhone
         }
 
     }
-    
+
+    public class NumberInternational
+    {
+        private string number;
+
+        public string Number
+        {
+            get { return number; }
+            set { number = value; }
+        }
+        private string minute;
+
+        public string Minute
+        {
+            get { return minute; }
+            set { minute = value; }
+        }
+    }
+
+    public class PartitionInfo
+    {
+        private int id;
+
+        public int Id
+        {
+            get { return id; }
+            set { id = value; }
+        }
+        private string name;
+
+        public string Name
+        {
+            get { return name; }
+            set { name = value; }
+        }
+    }
+
+    public class InfoNumberPhone
+    {
+        private int id;
+
+        public int Id
+        {
+            get { return id; }
+            set { id = value; }
+        }
+        private string phoneNumber;
+
+        public string PhoneNumber
+        {
+            get { return phoneNumber; }
+            set { phoneNumber = value; }
+        }
+        private string departmentName;
+
+        public string DepartmentName
+        {
+            get { return departmentName; }
+            set { departmentName = value; }
+        }
+        private string departmentDes;
+
+        public string DepartmentDes
+        {
+            get { return departmentDes; }
+            set { departmentDes = value; }
+        }
+
+
+
+    }
+    public class PriceList
+    {
+        private string category;
+
+        public string Category
+        {
+            get { return category; }
+            set { category = value; }
+        }
+
+        private string minute;
+
+        public string Minute
+        {
+            get { return minute; }
+            set { minute = value; }
+        }
+        private string block6;
+
+        public string Block6
+        {
+            get { return block6; }
+            set { block6 = value; }
+        }
+        private string second;
+
+        public string Second
+        {
+            get { return second; }
+            set { second = value; }
+        }
+        private string type;
+
+        public string Type
+        {
+            get { return type; }
+            set { type = value; }
+        }
+    }
 }
